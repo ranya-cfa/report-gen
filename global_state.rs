@@ -33,13 +33,13 @@ create_report_trait!(Incidence);
 create_report_trait!(Death);
 
 pub struct GlobalState {
-    report_map: HashMap<TypeId, Box<dyn Any>>
+    report_senders: HashMap<TypeId, Box<dyn Any>>
 }
 
 impl GlobalState {
     pub fn new() -> Self {
         GlobalState {
-            report_map: HashMap::new()
+            report_senders: HashMap::new()
         }
     }
     // Registers a new report type and starts a consumer thread to process reports of this type.
@@ -75,6 +75,35 @@ impl GlobalState {
     pub fn get_report_sender<T: Report + 'static>(&self) -> Option<&Sender<T>> {
         self.report_senders.get(&TypeId::of::<T>()).and_then(|sender| sender.downcast_ref::<Sender<T>>()) 
     }
+
+    pub fn start_producer_threads(&self) {
+        let tx_incidence = self.get_report_sender::<Incidence>().unwrap.clone(); 
+        let tx_death = self.get_report_sender::<Death>().unwrap.clone();
+
+        // Producer thread 1 
+        let producer1 = thread::spawn(move || {
+            for i in 0..3 {
+                let timestamp = format!("2023-06-26 {}", i);
+                tx_incidence.send(Incidence {timestamp: timestamp.clone(),new_cases: 150 + i}).unwrap();
+                tx_death1.send(Death {timestamp, deaths: 5 + i}).unwrap();
+                thread::sleep(Duration::from_secs(1));
+            }
+        });
+
+        // Producer thread 2
+        let producer2 = thread::spawn(move || {
+            for i in 3..6 {
+                let timestamp = format!("2023-06-26 {}", i);
+                tx_incidence.send(Incidence {timestamp: timestamp.clone(),new_cases: 150 + i}).unwrap();
+                tx_death1.send(Death {timestamp, deaths: 5 + i}).unwrap();
+                thread::sleep(Duration::from_secs(1));
+            }
+        });
+
+        producer1.join().unwrap();
+        producer2.join().unwrap();
+
+}
 }
 
     lazy_static::lazy_static! {
