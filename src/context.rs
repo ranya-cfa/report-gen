@@ -1,8 +1,10 @@
-use crate::global_state::{GLOBAL_STATE, Report};
-use std::any::TypeId;
-use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use std::sync::mpsc::Sender;
+use std::collections::HashMap;
+use std::any::TypeId;
+use std::sync::mpsc::{Sender, Receiver};
+use serde::{Serialize, Deserialize};
+use crate::GlobalState;
+use crate::global_state::{GLOBAL_STATE, Report, Incidence, Death};
 
 pub struct Context<'gs> {
     global_state: &'gs Arc<Mutex<GlobalState>>,
@@ -22,7 +24,7 @@ impl<'gs> Context<'gs> {
 
     fn update_report_senders(&mut self) {
         let state = self.global_state.lock().unwrap();
-        self.report_senders = state.report_senders.clone();
+        self.report_senders = state.get_report_sender().clone();
     }
 
     pub fn add_report<T: Report + 'static>(&mut self, filename: &str) {

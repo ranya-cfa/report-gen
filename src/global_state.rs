@@ -1,14 +1,16 @@
+use std::sync::{Arc, Mutex};
+use lazy_static::lazy_static;
 use std::collections::HashMap;
 use std::any::TypeId;
-use std::sync::{mpsc, Sender, Receiver};
+use serde_derive::Serialize;
+use serde_derive::Deserialize;
+use std::sync::mpsc;
+use std::sync::mpsc::{Sender, Receiver};
 use std::fs::File;
-use std::sync::Arc;
-use std::sync::Mutex;
 use std::thread;
 use std::time::Duration;
 use serde::{Serialize, Deserialize};
 use csv::Writer;
-
 pub trait Report: Send + 'static {
     fn make_report(&self);
     fn serialize(&self, writer: &mut Writer<File>);
@@ -29,13 +31,13 @@ macro_rules! create_report_trait {
 }
 
 #[derive(Serialize, Deserialize)]
-struct Incidence {
+pub struct Incidence {
     timestamp: String,
     new_cases: u32,
 }
 
 #[derive(Serialize, Deserialize)]
-struct Death {
+pub struct Death {
     timestamp: String,
     deaths: u32,
 }
@@ -60,7 +62,7 @@ impl GlobalState {
     }
     
     // Processes report items from associated receiver channel. 
-    pub fn setup_report<T: Report>(&mut self, filename: &str) {
+    pub fn setup_report<T: Report +'static>(&mut self, filename: &str) {
         let (tx, rx): (Sender<Box<dyn Report + Send>>, Receiver<Box<dyn Report + Send>>) = mpsc::channel();
         self.report_senders.insert(TypeId::of::<T>(), tx);
         thread::spawn(move || {
@@ -95,20 +97,18 @@ lazy_static! {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Arc;
-    use std::sync::Mutex;
 
     #[test]
     fn test_global_state_creation() {
         let state = GlobalState::new();
-        assert!(!state.report_senders.is_empty()); // Check that no reports have been added yet
+        assert!(state.report_senders.is_empty()); // Check that no reports have been added yet
     }
 
     #[test]
     fn test_setup_report() {
         let mut state = GlobalState::new();
         state.setup_report::<Incidence>("incidence_report.csv");
-        assert!(state.get_report_senders::<Incidence>().is_some());
+        assert!(state.get_report_sender::<Incidence>().is_some());
 
     }
 }
