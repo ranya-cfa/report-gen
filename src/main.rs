@@ -7,15 +7,12 @@ use std::sync::{Arc, Mutex};
 
 fn main() {
     let global_state = Arc::new(Mutex::new(GlobalState::new()));
-    // Adding reports during initialization
-    {
-        let mut state = global_state.lock().unwrap();
-        state.add_report::<Incidence>("incidence_report.csv");
-        state.add_report::<Death>("death_report.csv");
-    }
+    
+    let mut context1 = Context::new(&global_state);
+    let mut context2 = Context::new(&global_state);
 
-    let context1 = Context::new(&global_state);
-    let context2 = Context::new(&global_state);
+    context1.add_report::<Incidence>("incidence_report.csv");
+    context1.add_report::<Death>("death_report.csv");
 
     // Release report items
     context1.release_report_item(Incidence {

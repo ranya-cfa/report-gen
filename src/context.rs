@@ -7,8 +7,8 @@ use crate::GlobalState;
 use crate::global_state::{GLOBAL_STATE, Report, Incidence, Death};
 
 pub struct Context<'gs> {
-    global_state: &'gs Arc<Mutex<GlobalState>>,
-    report_senders: HashMap<TypeId, Sender<Box<dyn Report + Send>>>,
+    global_state: &'gs Arc<Mutex<GlobalState>>, // Lifetime 'gs ensures that reference to global state outlives 'Context' struct 
+    report_senders: HashMap<TypeId, Sender<Box<dyn Report + Send>>>, // Type Id represents type of report, value is Sender 
 }
 
 impl<'gs> Context<'gs> {
@@ -24,7 +24,7 @@ impl<'gs> Context<'gs> {
 
     fn update_report_senders(&mut self) {
         let state = self.global_state.lock().unwrap();
-        self.report_senders = state.get_report_sender().clone();
+        self.report_senders = state.get_report_map();
     }
 
     pub fn add_report<T: Report + 'static>(&mut self, filename: &str) {
@@ -34,11 +34,11 @@ impl<'gs> Context<'gs> {
         self.update_report_senders();
     }
 
-    pub fn release_report_item<T: Report + 'static>(&self, item: T) {
+    pub fn release_report_item<T: Report + 'static>(&self, item: T) { // Route report item to appropriate channel 
         // Releases a report item to the corresponding channel.
         let type_id = TypeId::of::<T>();
-        if let Some(sender) = self.report_senders.get(&type_id){
-            if let Err(_) = sender.send(Box::new(item)) {
+        if let Some(sender) = self.report_senders.get(&type_id){ // retrieve sender associated with type id
+            if let Err(_) = sender.send(Box::new(item)) { //send item Box<dyn Report + Send> through channel if sender is found. 
                 println!("Failed to send report item.");
             }
         } else {
@@ -63,9 +63,9 @@ mod tests {
     #[test]
     fn test_add_report() {
         let global_state = Arc::new(Mutex::new(GlobalState::new()));
-        let context  = Context::new(&global_state);
+        let mut context  = Context::new(&global_state);
         context.add_report::<Incidence>("incidence_report.csv");
         let state = global_state.lock().unwrap(); // Check that sender was added
-        assert!(state.get_report_senders::<Incidence>().is_some());
+        assert!(state.get_report_sender::<Incidence>().is_some());
     }
 }

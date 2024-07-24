@@ -11,7 +11,7 @@ use std::thread;
 use std::time::Duration;
 use serde::{Serialize, Deserialize};
 use csv::Writer;
-pub trait Report: Send + 'static {
+pub trait Report: Send + 'static { // Send is necessary to ensure thread safety because we have multiple thread boundaries with 'Sender' and 'Receiver'
     fn make_report(&self);
     fn serialize(&self, writer: &mut Writer<File>);
 }
@@ -32,14 +32,14 @@ macro_rules! create_report_trait {
 
 #[derive(Serialize, Deserialize)]
 pub struct Incidence {
-    timestamp: String,
-    new_cases: u32,
+    pub timestamp: String,
+    pub new_cases: u32,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct Death {
-    timestamp: String,
-    deaths: u32,
+    pub timestamp: String,
+    pub deaths: u32,
 }
 
 create_report_trait!(Incidence);
@@ -64,16 +64,17 @@ impl GlobalState {
     // Processes report items from associated receiver channel. 
     pub fn setup_report<T: Report +'static>(&mut self, filename: &str) {
         let (tx, rx): (Sender<Box<dyn Report + Send>>, Receiver<Box<dyn Report + Send>>) = mpsc::channel();
-        self.report_senders.insert(TypeId::of::<T>(), tx);
-        thread::spawn(move || {
-            let file = File::create(filename).unwrap();
-            let mut writer = Writer::from_writer(file);
+        self.report_senders.insert(TypeId::of::<T>(), tx); // Insert sender into report_senders map. Key: Type identifier of report type 'T'
+        let filename = filename.to_string();
+        thread::spawn(move || { // Spawn new thread to process incoming reports
+            let file = File::create(&filename).unwrap(); 
+            let mut writer = Writer::from_writer(file); // Create writer for that specific file 
             println!("Started processing reports for {}", filename);
             loop {
-                match rx.recv_timeout(Duration::from_secs(2)) {
+                match rx.recv_timeout(Duration::from_secs(2)) { // Receive report from receiver (Wait 2 seconds before timing out)
                     Ok(received) => {
-                        received.make_report();
-                        received.serialize(&mut writer);
+                        received.make_report(); // Create report 
+                        received.serialize(&mut writer); // Serialize into csv using designated writer
                         println!("Written report to {}", filename);
                     }
                     Err(_) => {
@@ -85,13 +86,17 @@ impl GlobalState {
         });
     }
     // Returns the sender if it exists 
-    pub fn get_report_sender<T: Report + 'static>(&self) -> Option<&Sender<Box<dyn Report + Send>>> {
+    pub fn get_report_sender<T: Report + 'static>(&self) -> Option<&Sender<Box<dyn Report + Send>>> { // Return the Sender
         self.report_senders.get(&TypeId::of::<T>())
+    }
+
+    pub fn get_report_map(&self) -> HashMap<TypeId, Sender<Box<dyn Report + Send>>> {
+        self.report_senders.clone()
     }
 }
 
-lazy_static! {
-    pub static ref GLOBAL_STATE: Arc<Mutex<GlobalState>> = Arc::new(Mutex::new(GlobalState::new()));
+lazy_static! { // create globally accessible, thread safe instance of Global Instance that can be shared across multiple threads 
+    pub static ref GLOBAL_STATE: Arc<Mutex<GlobalState>> = Arc::new(Mutex::new(GlobalState::new()));//creates new instance of GlobalState, mutex ensures that access is synchronized, arc allows to be shared across threads 
 }
 
 #[cfg(test)]
