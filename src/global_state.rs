@@ -7,7 +7,7 @@ use serde_derive::Deserialize;
 use std::sync::mpsc;
 use std::sync::mpsc::{Sender, Receiver};
 use std::fs::File;
-use std::thread;
+use std::thread::{self, JoinHandle};
 use std::time::Duration;
 use serde::{Serialize, Deserialize};
 use csv::Writer;
@@ -47,18 +47,15 @@ create_report_trait!(Death);
 
 pub struct GlobalState {
     report_senders: HashMap<TypeId, Sender<Box<dyn Report + Send>>>,
+    threads: Vec<JoinHandle<()>>,
 }
 
 impl GlobalState {
     pub fn new() -> Self {
-        let mut state = GlobalState {
+        GlobalState {
             report_senders: HashMap::new(),
-        };
-
-        state.setup_report::<Incidence>("incidence_report.csv");
-        state.setup_report::<Death>("death_report.csv");
-
-        state
+            threads: Vec::new(),
+        }
     }
     
     // Processes report items from associated receiver channel. 
@@ -66,7 +63,7 @@ impl GlobalState {
         let (tx, rx): (Sender<Box<dyn Report + Send>>, Receiver<Box<dyn Report + Send>>) = mpsc::channel();
         self.report_senders.insert(TypeId::of::<T>(), tx); // Insert sender into report_senders map. Key: Type identifier of report type 'T'
         let filename = filename.to_string();
-        thread::spawn(move || { // Spawn new thread to process incoming reports
+        let handle = thread::spawn(move || { // Spawn new thread to process incoming reports
             let file = File::create(&filename).unwrap(); 
             let mut writer = Writer::from_writer(file); // Create writer for that specific file 
             println!("Started processing reports for {}", filename);
@@ -84,7 +81,9 @@ impl GlobalState {
                 }
             }
         });
+        self.threads.push(handle);;
     }
+
     // Returns the sender if it exists 
     pub fn get_report_sender<T: Report + 'static>(&self) -> Option<&Sender<Box<dyn Report + Send>>> { // Return the Sender
         self.report_senders.get(&TypeId::of::<T>())
@@ -92,6 +91,17 @@ impl GlobalState {
 
     pub fn get_report_map(&self) -> HashMap<TypeId, Sender<Box<dyn Report + Send>>> {
         self.report_senders.clone()
+    }
+
+    pub fn report_senders_is_empty(&self) -> bool {
+        self.report_senders.is_empty()
+    }
+
+    pub fn join_threads(&mut self) {
+        let handles = std::mem::take(&mut self.threads); 
+        for handle in handles {
+            handle.join().unwrap();
+    }
     }
 }
 
@@ -106,7 +116,7 @@ mod tests {
     #[test]
     fn test_global_state_creation() {
         let state = GlobalState::new();
-        assert!(state.report_senders.is_empty()); // Check that no reports have been added yet
+        assert!(state.report_senders_is_empty()); // Check that no reports have been added yet
     }
 
     #[test]

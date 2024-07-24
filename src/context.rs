@@ -63,9 +63,13 @@ mod tests {
     #[test]
     fn test_add_report() {
         let global_state = Arc::new(Mutex::new(GlobalState::new()));
-        let mut context  = Context::new(&global_state);
+        let mut context = Context::new(&global_state);
         context.add_report::<Incidence>("incidence_report.csv");
-        let state = global_state.lock().unwrap(); // Check that sender was added
-        assert!(state.get_report_sender::<Incidence>().is_some());
+        {
+            let state = global_state.lock().unwrap();
+            assert!(state.get_report_sender::<Incidence>().is_some());
+        }
+        let mut state = global_state.lock().unwrap();
+        state.join_threads();
     }
 }
