@@ -13,6 +13,7 @@ use serde::{Serialize, Deserialize};
 use csv::Writer;
 pub trait Report: Send + 'static { // Send is necessary to ensure thread safety because we have multiple thread boundaries with 'Sender' and 'Receiver'
     fn make_report(&self);
+    fn type_id(&self) -> TypeId;
     fn serialize(&self, writer: &mut Writer<File>);
 }
 
@@ -21,6 +22,11 @@ macro_rules! create_report_trait {
         impl Report for $name {
             fn make_report(&self) {
                 println!("{} Report", stringify!($name));
+            }
+
+
+            fn type_id(&self) -> TypeId { // returns the TypeId of the report (used for identification)
+                TypeId::of::<$name>()
             }
 
             fn serialize(&self, writer: &mut Writer<File>) {
@@ -46,84 +52,69 @@ create_report_trait!(Incidence);
 create_report_trait!(Death);
 
 pub struct GlobalState {
-    report_senders: HashMap<TypeId, Sender<Box<dyn Report + Send>>>,
-    threads: Vec<JoinHandle<()>>,
+    sender: Sender<Box<dyn Report>>,
+    receiver: Arc<Mutex<Receiver<Box<dyn Report>>>>,
+    typeid_to_writer: Arc<Mutex<HashMap<TypeId, Writer<File>>>>,
+    consumer_thread: Option<JoinHandle<()>>,
 }
 
 impl GlobalState {
     pub fn new() -> Self {
+        let (sender, receiver): (Sender<Box<dyn Report>>, Receiver<Box<dyn Report>>) = mpsc::channel();
         GlobalState {
-            report_senders: HashMap::new(),
-            threads: Vec::new(),
+            sender, 
+            receiver: Arc::new(Mutex::new(receiver)),
+            typeid_to_writer: Arc::new(Mutex::new(HashMap::new())),
+            consumer_thread: None,
         }
     }
+
+    pub fn register_report_type<T: Report>(&mut self, filename: &str) {
+        let file = File::create(filename).unwrap();
+        println!("{} file created", filename);
+        self.typeid_to_writer.lock().unwrap().insert(TypeId::of::<T>(), Writer::from_writer(file));
+    }
     
-    // Processes report items from associated receiver channel. 
-    pub fn setup_report<T: Report +'static>(&mut self, filename: &str) {
-        let (tx, rx): (Sender<Box<dyn Report + Send>>, Receiver<Box<dyn Report + Send>>) = mpsc::channel();
-        self.report_senders.insert(TypeId::of::<T>(), tx); // Insert sender into report_senders map. Key: Type identifier of report type 'T'
-        let filename = filename.to_string();
+    pub fn start_consumer_thread(&mut self) {
+        let receiver =  Arc::clone(&self.receiver);
+        let typeid_to_writer = Arc::clone(&self.typeid_to_writer);
         let handle = thread::spawn(move || { // Spawn new thread to process incoming reports
-            let file = File::create(&filename).unwrap(); 
-            let mut writer = Writer::from_writer(file); // Create writer for that specific file 
-            println!("Started processing reports for {}", filename);
             loop {
-                match rx.recv_timeout(Duration::from_secs(2)) { // Receive report from receiver (Wait 2 seconds before timing out)
+                let result = receiver.lock().unwrap().recv_timeout(Duration::from_secs(2));
+                match result{ // Receive report from receiver (Wait 2 seconds before timing out)
                     Ok(received) => {
-                        received.make_report(); // Create report 
-                        received.serialize(&mut writer); // Serialize into csv using designated writer
-                        println!("Written report to {}", filename);
+                        received.make_report(); // Create report
+                        let type_id = received.type_id();
+                        let mut writers = typeid_to_writer.lock().unwrap();
+                        if let Some(writer) = writers.get_mut(&type_id) {
+                            received.serialize(writer);
+                            println!("Written report to file");
+                        } else {
+                            eprintln!("No writer found for report type");
+                        }
                     }
                     Err(_) => {
-                        println!("No more reports to process for {}", filename);
+                        println!("No more reports to process");
                         break;
                     }
                 }
             }
         });
-        self.threads.push(handle);;
+
+        self.consumer_thread = Some(handle);
     }
 
-    // Returns the sender if it exists 
-    pub fn get_report_sender<T: Report + 'static>(&self) -> Option<&Sender<Box<dyn Report + Send>>> { // Return the Sender
-        self.report_senders.get(&TypeId::of::<T>())
-    }
-
-    pub fn get_report_map(&self) -> HashMap<TypeId, Sender<Box<dyn Report + Send>>> {
-        self.report_senders.clone()
-    }
-
-    pub fn report_senders_is_empty(&self) -> bool {
-        self.report_senders.is_empty()
-    }
-
-    pub fn join_threads(&mut self) {
-        let handles = std::mem::take(&mut self.threads); 
-        for handle in handles {
+    pub fn join_consumer_thread(&mut self) {
+        if let Some(handle) = self.consumer_thread.take() {
             handle.join().unwrap();
+        }
     }
+
+    pub fn get_sender(&self) -> Sender<Box<dyn Report>> {
+        self.sender.clone()
     }
 }
 
 lazy_static! { // create globally accessible, thread safe instance of Global Instance that can be shared across multiple threads 
     pub static ref GLOBAL_STATE: Arc<Mutex<GlobalState>> = Arc::new(Mutex::new(GlobalState::new()));//creates new instance of GlobalState, mutex ensures that access is synchronized, arc allows to be shared across threads 
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_global_state_creation() {
-        let state = GlobalState::new();
-        assert!(state.report_senders_is_empty()); // Check that no reports have been added yet
-    }
-
-    #[test]
-    fn test_setup_report() {
-        let mut state = GlobalState::new();
-        state.setup_report::<Incidence>("incidence_report.csv");
-        assert!(state.get_report_sender::<Incidence>().is_some());
-
-    }
 }
