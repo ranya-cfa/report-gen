@@ -114,7 +114,3 @@ impl GlobalState {
         self.sender.clone()
     }
 }
-
-lazy_static! { // create globally accessible, thread safe instance of Global Instance that can be shared across multiple threads 
-    pub static ref GLOBAL_STATE: Arc<Mutex<GlobalState>> = Arc::new(Mutex::new(GlobalState::new()));//creates new instance of GlobalState, mutex ensures that access is synchronized, arc allows to be shared across threads 
-}

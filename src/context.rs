@@ -4,7 +4,7 @@ use std::any::TypeId;
 use std::sync::mpsc::{Sender, Receiver};
 use serde::{Serialize, Deserialize};
 use crate::GlobalState;
-use crate::global_state::{GLOBAL_STATE, Report, Incidence, Death};
+use crate::global_state::{Report, Incidence, Death};
 
 pub struct Context<'gs> {
     global_state: &'gs Arc<Mutex<GlobalState>>, // Lifetime 'gs ensures that reference to global state outlives 'Context' struct 
