@@ -1,12 +1,17 @@
 mod global_state;
 mod context;
 
-use global_state::{GlobalState, Incidence, Death};
+use global_state::GlobalState;
 use context::Context;
 use std::sync::{Arc, Mutex};
-use serde_derive::Serialize;
-use serde_derive::Deserialize;
-use serde::{Serialize, Deserialize};
+use csv::Writer;
+use std::fs::File;
+use serde_derive::{Serialize, Deserialize};
+
+pub trait Report: Send + 'static {
+    fn make_report(&self);
+    fn serialize(&self, writer: &mut Writer<File>);
+}
 
 #[derive(Serialize, Deserialize)]
 pub struct Incidence {
@@ -20,17 +25,31 @@ pub struct Death {
     pub deaths: u32,
 }
 
+macro_rules! create_report_trait {
+    ($name:ident) => {
+        impl Report for $name {
+            fn make_report(&self) {
+                println!("{} Report", stringify!($name));
+            }
+
+            fn serialize(&self, writer: &mut Writer<File>) {
+                writer.serialize(self).unwrap();
+            }
+        }
+    };
+}
+
 create_report_trait!(Incidence);
 create_report_trait!(Death);
 
 fn main() {
     let global_state = Arc::new(Mutex::new(GlobalState::new()));
     
-    let mut context1 = Context::new(&global_state);
-    let mut context2 = Context::new(&global_state);
+    let mut context1 = Context::new(global_state.clone());
+    let mut context2 = Context::new(global_state.clone());
 
-    context1.add_report::<Incidence>("incidence_report.csv");
-    context1.add_report::<Death>("death_report.csv");
+    global_state.lock().unwrap().add_report::<Incidence>("incidence_report.csv");
+    global_state.lock().unwrap().add_report::<Death>("death_report.csv");
 
     // Release report items
     context1.release_report_item(Incidence {
@@ -46,7 +65,7 @@ fn main() {
         timestamp: "2023-06-26 0".to_string(),
         deaths: 5,
     });
-    
-    //context1.execute();
-    //context2.execute()
+
+    // Ensure all threads are joined
+    global_state.lock().unwrap().join_threads();
 }

@@ -1,35 +1,11 @@
-use std::sync::{Arc, Mutex};
-use lazy_static::lazy_static;
 use std::collections::HashMap;
 use std::any::TypeId;
-use serde_derive::Serialize;
-use serde_derive::Deserialize;
 use std::sync::mpsc;
 use std::sync::mpsc::{Sender, Receiver};
 use std::fs::File;
 use std::thread::{self, JoinHandle};
-use std::time::Duration;
-use serde::{Serialize, Deserialize};
 use csv::Writer;
-pub trait Report: Send + 'static { // Send is necessary to ensure thread safety because we have multiple thread boundaries with 'Sender' and 'Receiver'
-    fn make_report(&self);
-    fn serialize(&self, writer: &mut Writer<File>);
-}
-
-macro_rules! create_report_trait {
-    ($name:ident) => {
-        impl Report for $name {
-            fn make_report(&self) {
-                println!("{} Report", stringify!($name));
-            }
-
-            fn serialize(&self, writer: &mut Writer<File>) {
-                writer.serialize(self).unwrap();
-            }
-        }
-    };
-}
-
+use crate::Report;
 pub struct GlobalState {
     report_senders: HashMap<TypeId, Sender<Box<dyn Report + Send>>>,
     threads: Vec<JoinHandle<()>>,
@@ -66,7 +42,7 @@ impl GlobalState {
                 }
             }
         });
-        self.threads.push(handle);;
+        self.threads.push(handle);
     }
 
     // Returns the sender if it exists 
@@ -83,15 +59,17 @@ impl GlobalState {
     }
 
     pub fn join_threads(&mut self) {
+        self.report_senders.clear();
         let handles = std::mem::take(&mut self.threads); 
         for handle in handles {
             handle.join().unwrap();
     }
+}
 
     pub fn add_report<T: Report + 'static>(&mut self, filename: &str) {
         self.setup_report::<T>(filename);
     }
-    }
+    
 }
 
 #[cfg(test)]
