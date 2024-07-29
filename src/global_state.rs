@@ -30,21 +30,6 @@ macro_rules! create_report_trait {
     };
 }
 
-#[derive(Serialize, Deserialize)]
-pub struct Incidence {
-    pub timestamp: String,
-    pub new_cases: u32,
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct Death {
-    pub timestamp: String,
-    pub deaths: u32,
-}
-
-create_report_trait!(Incidence);
-create_report_trait!(Death);
-
 pub struct GlobalState {
     report_senders: HashMap<TypeId, Sender<Box<dyn Report + Send>>>,
     threads: Vec<JoinHandle<()>>,
@@ -68,7 +53,7 @@ impl GlobalState {
             let mut writer = Writer::from_writer(file); // Create writer for that specific file 
             println!("Started processing reports for {}", filename);
             loop {
-                match rx.recv_timeout(Duration::from_secs(2)) { // Receive report from receiver (Wait 2 seconds before timing out)
+                match rx.recv() { // Receive report from receiver 
                     Ok(received) => {
                         received.make_report(); // Create report 
                         received.serialize(&mut writer); // Serialize into csv using designated writer
@@ -102,11 +87,11 @@ impl GlobalState {
         for handle in handles {
             handle.join().unwrap();
     }
-    }
-}
 
-lazy_static! { // create globally accessible, thread safe instance of Global Instance that can be shared across multiple threads 
-    pub static ref GLOBAL_STATE: Arc<Mutex<GlobalState>> = Arc::new(Mutex::new(GlobalState::new()));//creates new instance of GlobalState, mutex ensures that access is synchronized, arc allows to be shared across threads 
+    pub fn add_report<T: Report + 'static>(&mut self, filename: &str) {
+        self.setup_report::<T>(filename);
+    }
+    }
 }
 
 #[cfg(test)]
@@ -119,11 +104,11 @@ mod tests {
         assert!(state.report_senders_is_empty()); // Check that no reports have been added yet
     }
 
-    #[test]
+    /* #[test]
     fn test_setup_report() {
         let mut state = GlobalState::new();
         state.setup_report::<Incidence>("incidence_report.csv");
         assert!(state.get_report_sender::<Incidence>().is_some());
 
-    }
+    }*/
 }

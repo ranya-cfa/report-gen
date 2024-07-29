@@ -4,6 +4,24 @@ mod context;
 use global_state::{GlobalState, Incidence, Death};
 use context::Context;
 use std::sync::{Arc, Mutex};
+use serde_derive::Serialize;
+use serde_derive::Deserialize;
+use serde::{Serialize, Deserialize};
+
+#[derive(Serialize, Deserialize)]
+pub struct Incidence {
+    pub timestamp: String,
+    pub new_cases: u32,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct Death {
+    pub timestamp: String,
+    pub deaths: u32,
+}
+
+create_report_trait!(Incidence);
+create_report_trait!(Death);
 
 fn main() {
     let global_state = Arc::new(Mutex::new(GlobalState::new()));
