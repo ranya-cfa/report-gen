@@ -4,6 +4,8 @@ use std::any::TypeId;
 use std::sync::mpsc::Sender;
 use crate::GlobalState;
 use crate::Report;
+use std::fs::File;
+use std::io::{BufRead, BufReader, Result};
 
 pub struct Context {
     global_state: Arc<Mutex<GlobalState>>,
@@ -52,4 +54,68 @@ mod tests {
         let context = Context::new(global_state);
         assert!(context.report_senders.is_empty()); // Ensure that no reports have been added yet
     }
+
+    #[test]
+    fn test_release_report_item() {
+        let mut state = GlobalState::new();
+        state.setup_report::<Incidence>("test3_incidence_report.csv");
+        state.setup_report::<Death>("test3_death_report.csv");
+    
+        // generate reports
+        let incidence_report = Incidence {
+            timestamp: "2023-06-26 0".to_string(),
+            new_cases: 150,
+        };
+    
+        let death_report = Death {
+            timestamp: "2023-06-26 0".to_string(),
+            deaths: 5,
+        };
+    
+        // send reports
+        if let Some(sender) = state.get_report_sender::<Incidence>() {
+            sender.send(Box::new(incidence_report.clone())).unwrap();
+        }
+    
+        if let Some(sender) = state.get_report_sender::<Death>() {
+            sender.send(Box::new(death_report.clone())).unwrap();
+        }
+    
+        state.join_threads();
+    
+        // verify contents
+        assert!(std::path::Path::new("test3_incidence_report.csv").exists(), "Incidence report file does not exist");
+        assert!(std::path::Path::new("test3_death_report.csv").exists(), "Death report file does not exist");
+    
+        verify_file::<Incidence>("test3_incidence_report.csv", vec![
+            "timestamp,new_cases",
+            "2023-06-26 0,150"
+        ]);
+    
+        verify_file::<Death>("test3_death_report.csv", vec![
+            "timestamp,deaths",
+            "2023-06-26 0,5"
+        ]);
+    
+        std::fs::remove_file("test3_incidence_report.csv").unwrap();
+        std::fs::remove_file("test3_death_report.csv").unwrap();
+    }
+    
 }
+
+fn verify_file<T: Report>(file_path: &str, expected_lines: Vec<&str>) {
+    let file = File::open(file_path).expect("Failed to open file");
+    let reader = BufReader::new(file);
+    
+    // read file contents into vector of strings 
+    let mut lines: Vec<String> = reader.lines().map(|line| line.expect("Failed to read line")).collect();
+
+    lines.retain(|line| !line.trim().is_empty()); // remove extra empty lines at end of file
+
+    assert_eq!(lines.len(), expected_lines.len(), "File line count does not match");
+
+    // compare each line
+    for (line, expected_line) in lines.iter().zip(expected_lines.iter()) {
+        assert_eq!(line, *expected_line, "File contents don't match");
+    }
+ }

@@ -14,12 +14,14 @@ pub trait Report: Send + 'static {
 }
 
 #[derive(Serialize, Deserialize)]
+#[derive(Clone)]
 pub struct Incidence {
     pub timestamp: String,
     pub new_cases: u32,
 }
 
 #[derive(Serialize, Deserialize)]
+#[derive(Clone)]
 pub struct Death {
     pub timestamp: String,
     pub deaths: u32,
