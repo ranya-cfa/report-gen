@@ -42,6 +42,7 @@ impl Context {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{Incidence, Death};
     use std::sync::Arc;
     use std::sync::Mutex;
 
@@ -51,17 +52,4 @@ mod tests {
         let context = Context::new(global_state);
         assert!(context.report_senders.is_empty()); // Ensure that no reports have been added yet
     }
-
-    /* #[test]
-    fn test_add_report() {
-        let global_state = Arc::new(Mutex::new(GlobalState::new()));
-        let mut context = Context::new(&global_state);
-        context.add_report::<Incidence>("incidence_report.csv");
-        {
-            let state = global_state.lock().unwrap();
-            assert!(state.get_report_sender::<Incidence>().is_some());
-        }
-        let mut state = global_state.lock().unwrap();
-        state.join_threads();
-    } */
 }

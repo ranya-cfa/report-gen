@@ -6,6 +6,7 @@ use std::fs::File;
 use std::thread::{self, JoinHandle};
 use csv::Writer;
 use crate::Report;
+use serde::Deserialize;
 pub struct GlobalState {
     report_senders: HashMap<TypeId, Sender<Box<dyn Report + Send>>>,
     threads: Vec<JoinHandle<()>>,
@@ -50,10 +51,6 @@ impl GlobalState {
         self.report_senders.get(&TypeId::of::<T>())
     }
 
-    pub fn get_report_map(&self) -> HashMap<TypeId, Sender<Box<dyn Report + Send>>> {
-        self.report_senders.clone()
-    }
-
     pub fn report_senders_is_empty(&self) -> bool {
         self.report_senders.is_empty()
     }
@@ -75,6 +72,7 @@ impl GlobalState {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{Incidence, Death};
 
     #[test]
     fn test_global_state_creation() {
@@ -82,11 +80,38 @@ mod tests {
         assert!(state.report_senders_is_empty()); // Check that no reports have been added yet
     }
 
-    /* #[test]
-    fn test_setup_report() {
+    #[test]
+    fn test_setup_inc_report() {
         let mut state = GlobalState::new();
-        state.setup_report::<Incidence>("incidence_report.csv");
+        state.setup_report::<Incidence>("test_incidence_report.csv");
         assert!(state.get_report_sender::<Incidence>().is_some());
+        state.report_senders.clear();
+        state.join_threads();
+        assert!(std::path::Path::new("test_incidence_report.csv").exists(), "Incidence report file should exist");
+        std::fs::remove_file("test_incidence_report.csv").unwrap();
+    }
 
-    }*/
+    #[test]
+    fn test_setup_death_report() {
+        let mut state = GlobalState::new();
+        state.setup_report::<Death>("test_death_report.csv");
+        assert!(state.get_report_sender::<Death>().is_some());
+        state.report_senders.clear();
+        state.join_threads();
+        assert!(std::path::Path::new("test_death_report.csv").exists(), "Death report file should exist");
+        std::fs::remove_file("test_death_report.csv").unwrap();
+    }
+    
+    #[test]
+    fn test_join_threads() {
+        let mut state = GlobalState::new();
+        state.setup_report::<Incidence>("test2_incidence_report.csv");
+        state.setup_report::<Death>("test2_death_report.csv");
+        assert!(!state.threads.is_empty());
+        state.report_senders.clear();
+        state.join_threads();
+        assert!(state.threads.is_empty());
+        std::fs::remove_file("test2_incidence_report.csv").unwrap();
+        std::fs::remove_file("test2_death_report.csv").unwrap();
+    }
 }
