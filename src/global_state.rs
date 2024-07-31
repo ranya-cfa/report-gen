@@ -1,12 +1,12 @@
-use std::collections::HashMap;
-use std::any::TypeId;
-use std::sync::mpsc;
-use std::sync::mpsc::{Sender, Receiver};
-use std::fs::File;
-use std::thread::{self, JoinHandle};
-use csv::Writer;
 use crate::Report;
+use csv::Writer;
 use serde::Deserialize;
+use std::any::TypeId;
+use std::collections::HashMap;
+use std::fs::File;
+use std::sync::mpsc;
+use std::sync::mpsc::{Receiver, Sender};
+use std::thread::{self, JoinHandle};
 pub struct GlobalState {
     report_senders: HashMap<TypeId, Sender<Box<dyn Report + Send>>>,
     threads: Vec<JoinHandle<()>>,
@@ -19,20 +19,25 @@ impl GlobalState {
             threads: Vec::new(),
         }
     }
-    
-    // Processes report items from associated receiver channel. 
-    pub fn setup_report<T: Report +'static>(&mut self, filename: &str) {
-        let (tx, rx): (Sender<Box<dyn Report + Send>>, Receiver<Box<dyn Report + Send>>) = mpsc::channel();
+
+    // Processes report items from associated receiver channel.
+    pub fn setup_report<T: Report + 'static>(&mut self, filename: &str) {
+        let (tx, rx): (
+            Sender<Box<dyn Report + Send>>,
+            Receiver<Box<dyn Report + Send>>,
+        ) = mpsc::channel();
         self.report_senders.insert(TypeId::of::<T>(), tx); // Insert sender into report_senders map. Key: Type identifier of report type 'T'
         let filename = filename.to_string();
-        let handle = thread::spawn(move || { // Spawn new thread to process incoming reports
-            let file = File::create(&filename).unwrap(); 
-            let mut writer = Writer::from_writer(file); // Create writer for that specific file 
+        let handle = thread::spawn(move || {
+            // Spawn new thread to process incoming reports
+            let file = File::create(&filename).unwrap();
+            let mut writer = Writer::from_writer(file); // Create writer for that specific file
             println!("Started processing reports for {}", filename);
             loop {
-                match rx.recv() { // Receive report from receiver 
+                match rx.recv() {
+                    // Receive report from receiver
                     Ok(received) => {
-                        received.make_report(); // Create report 
+                        received.make_report(); // Create report
                         received.serialize(&mut writer); // Serialize into csv using designated writer
                         println!("Written report to {}", filename);
                     }
@@ -46,8 +51,11 @@ impl GlobalState {
         self.threads.push(handle);
     }
 
-    // Returns the sender if it exists 
-    pub fn get_report_sender<T: Report + 'static>(&self) -> Option<&Sender<Box<dyn Report + Send>>> { // Return the Sender
+    // Returns the sender if it exists
+    pub fn get_report_sender<T: Report + 'static>(
+        &self,
+    ) -> Option<&Sender<Box<dyn Report + Send>>> {
+        // Return the Sender
         self.report_senders.get(&TypeId::of::<T>())
     }
 
@@ -57,22 +65,21 @@ impl GlobalState {
 
     pub fn join_threads(&mut self) {
         self.report_senders.clear();
-        let handles = std::mem::take(&mut self.threads); 
+        let handles = std::mem::take(&mut self.threads);
         for handle in handles {
             handle.join().unwrap();
+        }
     }
-}
 
     pub fn add_report<T: Report + 'static>(&mut self, filename: &str) {
         self.setup_report::<T>(filename);
     }
-    
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Incidence, Death};
+    use crate::{Death, Incidence};
 
     #[test]
     fn test_global_state_creation() {
@@ -87,7 +94,10 @@ mod tests {
         assert!(state.get_report_sender::<Incidence>().is_some());
         state.report_senders.clear();
         state.join_threads();
-        assert!(std::path::Path::new("test_incidence_report.csv").exists(), "Incidence report file should exist");
+        assert!(
+            std::path::Path::new("test_incidence_report.csv").exists(),
+            "Incidence report file should exist"
+        );
         std::fs::remove_file("test_incidence_report.csv").unwrap();
     }
 
@@ -98,10 +108,13 @@ mod tests {
         assert!(state.get_report_sender::<Death>().is_some());
         state.report_senders.clear();
         state.join_threads();
-        assert!(std::path::Path::new("test_death_report.csv").exists(), "Death report file should exist");
+        assert!(
+            std::path::Path::new("test_death_report.csv").exists(),
+            "Death report file should exist"
+        );
         std::fs::remove_file("test_death_report.csv").unwrap();
     }
-    
+
     #[test]
     fn test_join_threads() {
         let mut state = GlobalState::new();
