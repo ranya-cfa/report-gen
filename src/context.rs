@@ -47,6 +47,7 @@ mod tests {
     use crate::{Incidence, Death};
     use std::sync::Arc;
     use std::sync::Mutex;
+    use std::thread;
 
     #[test]
     fn test_context_creation() {
@@ -100,7 +101,60 @@ mod tests {
         std::fs::remove_file("test3_incidence_report.csv").unwrap();
         std::fs::remove_file("test3_death_report.csv").unwrap();
     }
-    
+
+    #[test]
+    fn test_mult_context_prod() {
+        let num_contexts = 4;
+        let global_state = Arc::new(Mutex::new(GlobalState::new()));
+
+        global_state.lock().unwrap().add_report::<Incidence>("test4_incidence_report.csv");
+        global_state.lock().unwrap().add_report::<Death>("test4_death_report.csv");
+
+        let mut handles = vec![];
+
+        for i in 0..num_contexts {
+            let global_state = Arc::clone(&global_state);
+            let handle = thread::spawn(move || {
+                let mut context = Context::new(global_state);
+                let incidence_report = Incidence {
+                    timestamp: format!("2023-06-26 {}", i),
+                new_cases: 150 + i as u32,
+                };
+                let death_report = Death {
+                    timestamp: format!("2023-06-26 {}", i),
+                    deaths: 5 + i as u32,
+                };
+                context.release_report_item(incidence_report);
+                context.release_report_item(death_report);
+            });
+            handles.push(handle);
+        }
+
+        for handle in handles {
+            handle.join().unwrap();
+        }
+
+        global_state.lock().unwrap().join_threads();
+
+        verify_file::<Incidence>("test4_incidence_report.csv", vec![
+        "timestamp,new_cases",
+        "2023-06-26 0,150",
+        "2023-06-26 1,151",
+        "2023-06-26 2,152",
+        "2023-06-26 3,153",
+        ]);
+
+        verify_file::<Death>("test4_death_report.csv", vec![
+        "timestamp,deaths",
+        "2023-06-26 0,5",
+        "2023-06-26 1,6",
+        "2023-06-26 2,7",
+        "2023-06-26 3,8",
+        ]);
+
+        std::fs::remove_file("test4_incidence_report.csv").unwrap();
+        std::fs::remove_file("test4_death_report.csv").unwrap();
+    } 
 }
 
 fn verify_file<T: Report>(file_path: &str, expected_lines: Vec<&str>) {
@@ -110,6 +164,12 @@ fn verify_file<T: Report>(file_path: &str, expected_lines: Vec<&str>) {
     // read file contents into vector of strings 
     let mut lines: Vec<String> = reader.lines().map(|line| line.expect("Failed to read line")).collect();
 
+    // Debug prints to show file contents
+    println!("Actual file contents:");
+    for line in &lines {
+        println!("Line: {}", line);
+    }
+    
     lines.retain(|line| !line.trim().is_empty()); // remove extra empty lines at end of file
 
     assert_eq!(lines.len(), expected_lines.len(), "File line count does not match");
