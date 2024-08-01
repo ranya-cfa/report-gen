@@ -1,6 +1,5 @@
 use crate::Report;
 use csv::Writer;
-use serde::Deserialize;
 use std::any::TypeId;
 use std::collections::HashMap;
 use std::fs::File;

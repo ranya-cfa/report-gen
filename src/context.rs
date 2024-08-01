@@ -3,7 +3,7 @@ use crate::Report;
 use std::any::TypeId;
 use std::collections::HashMap;
 use std::fs::File;
-use std::io::{BufRead, BufReader, Result};
+use std::io::{BufRead, BufReader};
 use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex};
 

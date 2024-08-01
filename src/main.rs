@@ -7,6 +7,7 @@ use global_state::GlobalState;
 use serde_derive::{Deserialize, Serialize};
 use std::fs::File;
 use std::sync::{Arc, Mutex};
+use std::thread;
 
 pub trait Report: Send + 'static {
     fn make_report(&self);
@@ -47,41 +48,47 @@ create_report_trait!(Incidence);
 create_report_trait!(Death);
 
 fn main() {
+    let num_contexts = 2;
     let global_state = Arc::new(Mutex::new(GlobalState::new()));
 
-    let mut context1 = Context::new(global_state.clone());
-    let mut context2 = Context::new(global_state.clone());
-
     global_state
         .lock()
         .unwrap()
-        .add_report::<Incidence>("incidence_report.csv");
+        .add_report::<Incidence>("main_incidence_report.csv");
     global_state
         .lock()
         .unwrap()
-        .add_report::<Death>("death_report.csv");
+        .add_report::<Death>("main_death_report.csv");
 
-    // Release report items
-    context1.release_report_item(Incidence {
-        context_name: "Context 1".to_string(),
-        counter: 1,
-        timestamp: "2023-06-26 0".to_string(),
-        new_cases: 150,
-    });
-    context2.release_report_item(Incidence {
-        context_name: "Context 2".to_string(),
-        counter: 1,
-        timestamp: "2023-06-26 1".to_string(),
-        new_cases: 160,
-    });
+    let mut handles = vec![];
 
-    context1.release_report_item(Death {
-        context_name: "Context 1".to_string(),
-        counter: 2,
-        timestamp: "2023-06-26 0".to_string(),
-        deaths: 5,
-    });
+    for i in 0..num_contexts {
+        let global_state = Arc::clone(&global_state);
+        let handle = thread::spawn(move || {
+            let mut context = Context::new(global_state);
+            for counter in 0..3 {
+                let incidence_report = Incidence {
+                    context_name: format!("Context {}", i),
+                    counter,
+                    timestamp: format!("2023-06-26 {}", counter),
+                    new_cases: 150 + counter as u32,
+                };
+                let death_report = Death {
+                    context_name: format!("Context {}", i),
+                    counter,
+                    timestamp: format!("2023-06-26 {}", counter),
+                    deaths: 5 + counter as u32,
+                };
+                context.release_report_item(incidence_report);
+                context.release_report_item(death_report);
+            }
+        });
+        handles.push(handle);
+    }
 
-    // Ensure all threads are joined
+    for handle in handles {
+        handle.join().unwrap();
+    }
+
     global_state.lock().unwrap().join_threads();
 }
