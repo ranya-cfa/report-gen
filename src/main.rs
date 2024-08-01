@@ -1,29 +1,74 @@
-mod global_state;
 mod context;
+mod global_state;
 
-use global_state::{GlobalState, Incidence, Death};
 use context::Context;
-use std::thread;
+use csv::Writer;
+use global_state::GlobalState;
+use serde_derive::{Deserialize, Serialize};
+use std::fs::File;
 use std::sync::{Arc, Mutex};
+use std::any::TypeId;
+
+pub trait Report: Send + 'static { // Send is necessary to ensure thread safety because we have multiple thread boundaries with 'Sender' and 'Receiver'
+    fn make_report(&self);
+    fn type_id(&self) -> TypeId;
+    fn serialize(&self, writer: &mut Writer<File>);
+}
+
+macro_rules! create_report_trait {
+    ($name:ident) => {
+        impl Report for $name {
+            fn make_report(&self) {
+                println!("{} Report", stringify!($name));
+            }
+
+
+            fn type_id(&self) -> TypeId { // returns the TypeId of the report (used for identification)
+                TypeId::of::<$name>()
+            }
+
+            fn serialize(&self, writer: &mut Writer<File>) {
+                writer.serialize(self).unwrap();
+            }
+        }
+    };
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct Incidence {
+    pub timestamp: String,
+    pub new_cases: u32,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct Death {
+    pub timestamp: String,
+    pub deaths: u32,
+}
+
+create_report_trait!(Incidence);
+create_report_trait!(Death);
+
 
 fn main() {
     let global_state = Arc::new(Mutex::new(GlobalState::new()));
 
-    {
-        let mut gs = global_state.lock().unwrap();
-        gs.register_report_type::<Incidence>("incidence.csv");
-        gs.register_report_type::<Death>("death.csv");
-        gs.start_consumer_thread();
-    }
+    let context1 = Context::new(global_state.clone());
+    let context2 = Context::new(global_state.clone());
 
-    let context1 = Context::new(&global_state);
-    let context2 = Context::new(&global_state);
+    global_state
+        .lock()
+        .unwrap()
+        .register_report_type::<Incidence>("incidence.csv");
 
-    context1.add_report(Incidence { timestamp: "2024-07-26".to_string(), new_cases: 42 });
-    context2.add_report(Death { timestamp: "2024-07-26".to_string(), deaths: 1 });
+    global_state
+        .lock()
+        .unwrap()
+        .register_report_type::<Death>("death.csv");
 
-    {
-        let mut gs = global_state.lock().unwrap();
-        gs.join_consumer_thread();
-    }
+    
+    context1.send_report(Incidence { timestamp: "2024-07-26".to_string(), new_cases: 42 });
+    context2.send_report(Death { timestamp: "2024-07-26".to_string(), deaths: 1 });
+
+    global_state.lock().unwrap().join_consumer_thread();
 }
