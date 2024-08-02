@@ -9,7 +9,7 @@ use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 
 pub struct GlobalState {
-    sender: Option<Sender<Box<dyn Report>>>, // Option allows sender to be set to None after consumer has been joined. Indicates that no more reports can be sent. 
+    sender: Option<Sender<Box<dyn Report>>>, // Option allows sender to be set to None after consumer has been joined. Indicates that no more reports can be sent.
     receiver: Arc<Mutex<Receiver<Box<dyn Report>>>>,
     typeid_to_writer: Arc<Mutex<HashMap<TypeId, Writer<File>>>>,
     consumer_thread: Option<JoinHandle<()>>,
@@ -20,7 +20,7 @@ impl GlobalState {
         let (sender, receiver): (Sender<Box<dyn Report>>, Receiver<Box<dyn Report>>) =
             mpsc::channel();
         GlobalState {
-            sender: Some(sender),                                                 // sender for sending reports
+            sender: Some(sender),                     // sender for sending reports
             receiver: Arc::new(Mutex::new(receiver)), // receiver, wrapped in Arc and Mutex for thread safety
             typeid_to_writer: Arc::new(Mutex::new(HashMap::new())), // maps type IDs to CSV writers, arc because it needs to be shared across thread
             consumer_thread: None,                                  // handle for consumer thread
@@ -67,7 +67,7 @@ impl GlobalState {
     }
 
     pub fn join_consumer_thread(&mut self) {
-        self.sender = None; // set sender to None before joining consumer thread to prevent any new reports from being sent
+        self.sender = None; // tell receiver no new report will ever be sent
         if let Some(handle) = self.consumer_thread.take() {
             handle.join().unwrap();
         }

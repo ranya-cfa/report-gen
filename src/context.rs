@@ -1,5 +1,6 @@
 use crate::GlobalState;
 use crate::Report;
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::BufRead;
 use std::io::BufReader;
@@ -31,8 +32,6 @@ mod tests {
     use crate::{Death, Incidence};
     use std::sync::Arc;
     use std::sync::Mutex;
-    use std::thread;
-    use std::time::Duration;
 
     #[test]
     fn test_context_creation() {
@@ -119,7 +118,69 @@ mod tests {
         std::fs::remove_file("test3_incidence_report.csv").unwrap();
         std::fs::remove_file("test3_death_report.csv").unwrap();
     }
-    
+
+    #[test]
+    fn test_mult_context_prod() {
+        let num_contexts = 4;
+        let global_state = Arc::new(Mutex::new(GlobalState::new()));
+
+        {
+            let mut state = global_state.lock().unwrap();
+            state.register_report_type::<Incidence>("test4_incidence_report.csv");
+            state.register_report_type::<Death>("test4_death_report.csv");
+        }
+
+        {
+            let mut state = global_state.lock().unwrap();
+            state.start_consumer_thread();
+        }
+
+        for i in 0..num_contexts {
+            {
+                let context = Context::new(global_state.clone());
+                for counter in 0..4 {
+                    let incidence_report = Incidence {
+                        context_name: format!("Context {}", i),
+                        counter,
+                        timestamp: format!("2023-06-26 {}", counter),
+                        new_cases: 150 + counter as u32,
+                    };
+                    let death_report = Death {
+                        context_name: format!("Context {}", i),
+                        counter,
+                        timestamp: format!("2023-06-26 {}", counter),
+                        deaths: 5 + counter as u32,
+                    };
+                    context.send_report(incidence_report);
+                    context.send_report(death_report);
+                }
+            }
+        }
+
+        global_state.lock().unwrap().join_consumer_thread();
+        drop(global_state);
+
+        assert!(
+            std::path::Path::new("test4_incidence_report.csv").exists(),
+            "Incidence report file does not exist"
+        );
+        assert!(
+            std::path::Path::new("test4_death_report.csv").exists(),
+            "Death report file does not exist"
+        );
+
+        verify_file_multi::<Incidence>(
+            "test4_incidence_report.csv",
+            "context_name,counter,timestamp,new_cases",
+        );
+        verify_file_multi::<Death>(
+            "test4_death_report.csv",
+            "context_name,counter,timestamp,deaths",
+        );
+
+        std::fs::remove_file("test4_incidence_report.csv").unwrap();
+        std::fs::remove_file("test4_death_report.csv").unwrap();
+    }
 }
 
 fn verify_single_thread<T: Report>(file_path: &str, expected_lines: Vec<&str>) {
@@ -153,5 +214,42 @@ fn verify_single_thread<T: Report>(file_path: &str, expected_lines: Vec<&str>) {
 
     for (line, expected_line) in lines.iter().zip(expected_lines_sorted.iter()) {
         assert_eq!(line, expected_line, "File contents don't match");
+    }
+}
+
+fn verify_file_multi<T: Report>(file_path: &str, expected_header: &str) {
+    let file = File::open(file_path).expect("Failed to open file");
+    let reader = BufReader::new(file);
+
+    // read file contents into vec of strings
+    let lines: Vec<String> = reader
+        .lines()
+        .map(|line| line.expect("Failed to read line"))
+        .collect();
+
+    println!("Actual file contents:");
+    for line in &lines {
+        println!("Line: {}", line);
+    }
+
+    // first line should be the header
+    assert_eq!(lines[0], expected_header, "File header does not match");
+
+    let mut context_counters: HashMap<String, i32> = HashMap::new();
+
+    // check if counters are in correct order
+    for line in lines.iter().skip(1) {
+        let parts: Vec<&str> = line.split(',').collect();
+        let context_name = parts[0].to_string();
+        let counter: i32 = parts[1].parse().expect("Failed to parse counter");
+
+        let expected_counter = context_counters.entry(context_name.clone()).or_insert(0);
+        assert_eq!(
+            counter, *expected_counter,
+            "Counter value does not match for context {}",
+            context_name
+        );
+
+        *expected_counter += 1;
     }
 }
