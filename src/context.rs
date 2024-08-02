@@ -78,17 +78,19 @@ mod tests {
             deaths: 5,
         };
 
-        let context = Context::new(global_state.clone());
-
-        // consumer thread
         {
             let mut state = global_state.lock().unwrap();
             state.start_consumer_thread();
+        }
+
+        {
+            let context = Context::new(global_state.clone());
             context.send_report(incidence_report);
             context.send_report(death_report);
-            thread::sleep(Duration::from_secs(3));
-            state.join_consumer_thread();
         }
+
+        global_state.lock().unwrap().join_consumer_thread();
+        drop(global_state);
 
         assert!(
             std::path::Path::new("test3_incidence_report.csv").exists(),
@@ -117,6 +119,7 @@ mod tests {
         std::fs::remove_file("test3_incidence_report.csv").unwrap();
         std::fs::remove_file("test3_death_report.csv").unwrap();
     }
+    
 }
 
 fn verify_single_thread<T: Report>(file_path: &str, expected_lines: Vec<&str>) {
