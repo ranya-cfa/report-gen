@@ -67,6 +67,7 @@ impl GlobalState {
     }
 
     pub fn join_consumer_thread(&mut self) {
+        self.sender = None; // set sender to None before joining consumer thread to prevent any new reports from being sent
         if let Some(handle) = self.consumer_thread.take() {
             handle.join().unwrap();
         }
