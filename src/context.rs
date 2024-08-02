@@ -32,6 +32,7 @@ mod tests {
     use crate::{Death, Incidence};
     use std::sync::Arc;
     use std::sync::Mutex;
+    use std::thread;
 
     #[test]
     fn test_context_creation() {
@@ -135,9 +136,12 @@ mod tests {
             state.start_consumer_thread();
         }
 
+        let mut handles = vec![];
+
         for i in 0..num_contexts {
-            {
-                let context = Context::new(global_state.clone());
+            let global_state_clone = global_state.clone();
+            let handle = thread::spawn(move || {
+                let context = Context::new(global_state_clone.clone());
                 for counter in 0..4 {
                     let incidence_report = Incidence {
                         context_name: format!("Context {}", i),
@@ -154,7 +158,12 @@ mod tests {
                     context.send_report(incidence_report);
                     context.send_report(death_report);
                 }
-            }
+            });
+            handles.push(handle);
+        }
+
+        for handle in handles {
+            handle.join().unwrap();
         }
 
         global_state.lock().unwrap().join_consumer_thread();
