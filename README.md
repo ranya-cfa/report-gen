@@ -1,3 +1,5 @@
+Option 2
+
 One channel, with all report types written onto it, one reader thread that demuxes them.
 
 Global state creates a sender and receiver, which are necessary to establish the channel. It also has typeid_to_writer, which is a map of the report type to the associated writer. Additionally, it creates one consumer thread. 
