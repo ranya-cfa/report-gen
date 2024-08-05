@@ -10,7 +10,6 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 
 pub trait Report: Send + 'static {
-    fn make_report(&self);
     fn serialize(&self, writer: &mut Writer<File>);
 }
 
@@ -33,10 +32,6 @@ pub struct Death {
 macro_rules! create_report_trait {
     ($name:ident) => {
         impl Report for $name {
-            fn make_report(&self) {
-                println!("{} Report", stringify!($name));
-            }
-
             fn serialize(&self, writer: &mut Writer<File>) {
                 writer.serialize(self).unwrap();
             }

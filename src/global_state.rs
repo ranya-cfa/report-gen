@@ -31,15 +31,12 @@ impl GlobalState {
             // Spawn new thread to process incoming reports
             let file = File::create(&filename).unwrap();
             let mut writer = Writer::from_writer(file); // Create writer for that specific file
-            println!("Started processing reports for {}", filename);
             loop {
                 match rx.recv() {
                     // Receive report from receiver
                     Ok(received) => {
-                        received.make_report(); // Create report
-                        received.serialize(&mut writer); // Serialize into csv using designated writer
-                        println!("Written report to {}", filename);
-                    }
+\                        received.serialize(&mut writer); // Serialize into csv using designated writer
+\                    }
                     Err(_) => {
                         println!("No more reports to process for {}", filename);
                         break;
