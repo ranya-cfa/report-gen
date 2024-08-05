@@ -35,8 +35,8 @@ impl GlobalState {
                 match rx.recv() {
                     // Receive report from receiver
                     Ok(received) => {
-\                        received.serialize(&mut writer); // Serialize into csv using designated writer
-\                    }
+                        received.serialize(&mut writer); // Serialize into csv using designated writer
+                    }
                     Err(_) => {
                         println!("No more reports to process for {}", filename);
                         break;
