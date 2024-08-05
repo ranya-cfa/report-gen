@@ -8,7 +8,6 @@ use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex};
 
 pub struct Context {
-    global_state: Arc<Mutex<GlobalState>>,
     sender: Sender<Box<dyn Report>>,
 }
 
@@ -16,7 +15,6 @@ impl Context {
     pub fn new(global_state: Arc<Mutex<GlobalState>>) -> Self {
         let sender = global_state.lock().unwrap().get_sender();
         Context {
-            global_state,
             sender,
         }
     }
@@ -37,7 +35,6 @@ mod tests {
     #[test]
     fn test_context_creation() {
         let global_state = Arc::new(Mutex::new(GlobalState::new()));
-        let context = Context::new(global_state.clone());
         assert_eq!(
             global_state
                 .lock()

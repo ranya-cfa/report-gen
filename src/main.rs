@@ -12,7 +12,6 @@ use std::thread;
 
 pub trait Report: Send + 'static {
     // Send is necessary to ensure thread safety because we have multiple thread boundaries with 'Sender' and 'Receiver'
-    fn make_report(&self);
     fn type_id(&self) -> TypeId;
     fn serialize(&self, writer: &mut Writer<File>);
 }
@@ -20,10 +19,7 @@ pub trait Report: Send + 'static {
 macro_rules! create_report_trait {
     ($name:ident) => {
         impl Report for $name {
-            fn make_report(&self) {
-                println!("{} Report", stringify!($name));
-            }
-
+            
             fn type_id(&self) -> TypeId {
                 // returns the TypeId of the report (used for identification)
                 TypeId::of::<$name>()

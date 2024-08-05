@@ -29,7 +29,6 @@ impl GlobalState {
 
     pub fn register_report_type<T: Report>(&mut self, filename: &str) {
         let file = File::create(filename).unwrap(); // create new file for report type
-        println!("{} file created", filename); // print that the file was created
         self.typeid_to_writer
             .lock()
             .unwrap()
@@ -44,14 +43,12 @@ impl GlobalState {
             loop {
                 let result = receiver.lock().unwrap().recv(); // receive a report
                 match result {
-                    // Receive report from receiver (Wait 2 seconds before timing out)
+                    // Receive report from receiver 
                     Ok(received) => {
-                        received.make_report(); // create report
                         let type_id = received.type_id();
                         let mut writers = typeid_to_writer.lock().unwrap();
                         if let Some(writer) = writers.get_mut(&type_id) {
                             received.serialize(writer); // serialize report with appropriate writer
-                            println!("Written report to file");
                         } else {
                             eprintln!("No writer found for report type");
                         }
