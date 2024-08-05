@@ -1,4 +1,6 @@
-Framework Skeleton
+Option 4
+
+One channel per report type, one reader thread per report type
 
 A global state (global_state.rs) manages report generation across multiple simulation 
 contexts. It maintains a map of report senders, allowing different report types to be 
