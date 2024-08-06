@@ -1,13 +1,15 @@
-# Define report types
+# Option 4
 
-## Trait Definition 
-Add methods that the reports will use. `serialize` is an example of one.
-```rust
-pub trait Report: Send + 'static {
-    fn serialize(&self, writer: &mut Writer<File>);
-}
-```
-## Report Structs
+## Overview 
+
+This implementation has one channel per report type and one reader thread per report type. 
+
+This document describes the API that involves three main components: Reports, Global State, and Contexts. The system is designed to create, manage, and serialize various types of reports in a multithreaded environment.
+
+## Reports
+Reports represent different types of data collected during the simulation. Each report type must implement the `Report` trait in order to enable serialization. 
+
+### Report Structs
 Declare report types and relevant fields
 
 ```rust 
@@ -19,41 +21,29 @@ pub struct ReportType {
 }
 ```
 
-## Macro for Trait Implementation 
-The macro simplifies the implementation of the `Report` trait for different report types.
-
-```rust
-macro_rules! create_report_trait {
-    ($name:ident) => {
-        impl Report for $name {
-            fn serialize(&self, writer: &mut Writer<File>) {
-                writer.serialize(self).unwrap();
-            }
-        }
-    };
-}
-```
-
-## Create report traits 
+### Create report traits 
 Create traits for all report types 
 `create_report_trait!(ReportType)`
 
-# Declare global state and add reports 
-```rust
-use ixa::GlobalState;
+## Global State 
+Global State manages the global settings, report types, and handles report serialization. 
 
+### Declare global state and add reports 
+```rust
 let global_state = Arc::new(Mutex::new(GlobalState::new()))
 global_state.lock().unwrap().add_report::<ReportType>("report_type.csv")
 ```
+### Join consumer threads at end of program
+`global_state.lock().unwrap().join_threads()`
 
-# Create context 
-```rust
-use ixa::Context;
+## Context
+Context represents a specific execution environment within the simulation, responsible for generating and sending reports. It interacts with `GlobalState` to send reports. 
 
-let mut context = Context::new(global_state);
-```
+### Create context 
+`let mut context = Context::new(global_state)`
 
-# Release report items 
+### Release report item
+Send report to GlobalState
 ```rust
 let report_type = ReportType {
     context_name: ,
@@ -63,6 +53,3 @@ let report_type = ReportType {
     }
 context.release_report_item(report_type);
 ```
-
-# Cleanup
-Ensure all threads are joined and resources are cleaned up
