@@ -1,58 +1,92 @@
 # Option 4
+Note: this implementation has one channel per report type and one reader thread per report type. 
 
 ## Overview 
 
-This implementation has one channel per report type and one reader thread per report type. 
+When a model is executed, you want to report information about the state of each simulation to one or more summary files (a "report"). For example, if you have a respiratory disease model that infects people and some die, you might have two reports: an incidence report that records each time a person is infected, and a death report that records when they die. 
 
-This document describes the API that involves three main components: Reports, Global State, and Contexts. The system is designed to create, manage, and serialize various types of reports in a multithreaded environment.
+This utility is designed to create, manage, and serialize reports in a multithreaded environment, where each simulation runs in a separate thread but outputs to a single set of reports.
+Each report type is defined by a struct, a `GlobalState` instance is created to manage all the thread communication and file writing, and as events occur which need to be recorded, you will call a method on the `Context` to relay them back to `GlobalState`.
 
 ## Reports
-Reports represent different types of data collected during the simulation. Each report type must implement the `Report` trait in order to enable serialization. 
+Reports are files that record different types of outputs generated during the simulation, such as the time of each infection. You must define a struct for each report where the fields correspond to the columns you want in the resulting CSV file. For example, an `Incidence` report might have a `timestamp` column to record the time of infection, as well as an `info` column for additional metadata. 
 
-### Report Structs
-Declare report types and relevant fields. `ReportType` indicates the type of report that is being declared and the `info` field is the information for that specific field. For example, for the `Incidence` report type, the info field might be renamed to `new_cases`, or for the `Death` report type, the info field might be renamed to `death` and contain either the number of deaths or death rate. This struct should essentially be modified to include the relevant fields that should be printed to the final CSV.  
+For the following example:
 
 ```rust 
-pub struct ReportType {
-    pub context_name: String,
-    pub counter: usize,
+pub struct Incidence {
     pub timestamp: String,
     pub info: u32,
 }
 ```
+the resulting `incidence.csv` will look something like this:
 
-### Create report traits 
-After declaring the report types, we must actually create the report traits by calling the `create_report_trait` macro and passing the name of the report type to it. The macro is used to automatically implement common functionality for each report type, such as `serialize`, which is used to convert the report data into CSV format. 
-`create_report_trait!(ReportType)`
+```
+timestamp,info
+2023-08-05,55
+2023-08-06,48
+```
 
-## Global State 
-Global State manages the global settings, report types, and handles report serialization. 
+### `create_report_trait!`
 
-### Declare global state and add reports 
-Declare the global state with `new()`. This state will be shared across different threads, so we wrap it in Arc<Mutex<>> to ensure safe concurrent access and modification.
-`let global_state = Arc::new(Mutex::new(GlobalState::new()))`
-Next, add the desired report types to the global state. This is required to setup the report type. Each report type is associated with a specific CSV file for output. Specify the output file in the `add_report` parameter. 
-`global_state.lock().unwrap().add_report::<ReportType>("report_type.csv")`
+Because outputs are serialized to files, your report type must implement some common functionality
+such as `serialize`, which is used to convert the report data into CSV format. You can do this by implementing the `Report` trait, but the easiest way to do this is to use `create_report_trait!`. For the above example:
 
-### Join consumer threads at end of program
-To ensure all consumer threads complete their tasks before the program ends, call the `join_threads` method on the global state. This method waits for all consumer threads to finish processing their reports.
-`global_state.lock().unwrap().join_threads()`
+```rust 
+create_report_trait!(Incidence)
+```
+
+## GlobalState 
+`GlobalState` is responsible for thread management between the simulations and the writer threads. When running a multi-threaded experiment, you need to create a single `GlobalState` instance that is shared across all your simulations. 
+
+### `add_report::<ReportType>(filename: &str)`
+
+Create an instance of `GlobalState`, and call `add_report` with each report type along with a filename: 
+
+```rust
+let mut global_state = GlobalState::new();
+global_state.add_report::<Incidence>("incidence_report.csv");
+global_state.add_report::<Death>("death_report.csv");
+```
+
+See `Context` documentation for how to add a `GlobalState` to each simulation.
+
+### `join_threads()`
+When all simulations have finished executing, call `join_threads()` to close all channels and finish writing reports. The program will not exit until this method is called. 
+
+``` rust
+global_state.lock().unwrap().join_threads()`
+```
 
 ## Context
-Context represents a specific execution environment within the simulation, responsible for generating and sending reports. It interacts with `GlobalState` to send reports. Each Context instance holds a clone of `Arc<Mutex<GlobalState>>`. This allows each context to share the same GlobalState while ensuring that access is thread-safe.
+`Context` represents the execution environment and shared state for a single simulation. In a multithreaded scenario, you will spawn a thread and create a new context for each simulation. Each context will need a copy of a thread safe `GlobalState` pointer in order to write to a shared set of reports.
 
-### Create context 
-To create a new context, use the `new()` method and pass the global state to it. This initializes a context that can send reports through the shared global state.
-`let mut context = Context::new(global_state)`
+### Registering GlobalState
+Since `GlobalState` will be shared across different threads, you must wrap it in `Arc<Mutex<>>` to ensure safe concurrent access and modification. Whenever you create a new simulation, you will need to clone the pointer and pass it to the `Context` for that simulation:
 
-### Release report item
-To send a report to the GlobalState, create an instance of the report type with the required fields and call the release_report_item method on the context.
 ```rust
-let report_type = ReportType {
-    context_name: ,
-    counter,
-    timestamp: ,
-    info: ,
-    }
-context.release_report_item(report_type);
+let mut global_state = GlobalState::new();
+...
+let global_state = Arc::new(Mutex::new(global_state));
+for i in 0..n {
+    let global_state = Arc::clone(&global_state);
+    let handle = thread::spawn(move || {
+        let mut context = Context::new(global_state);
+        ...
+    })  
+}
+```
+
+### `release_report_item(item: T)`
+
+Anytime something happens (ie. a person gets infected) in the model that you want to record, you can 
+use `release_report_item` to write a new row to a report. Note that you will need to call the method
+with the appropriate report type:
+
+```rust
+let new_row = Incidence {
+    timestamp: "2023-06-26 0".to_string(),
+    info: 100,
+}
+context.release_report_item(new_row);
 ```

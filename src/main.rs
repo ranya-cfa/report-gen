@@ -44,7 +44,7 @@ create_report_trait!(Death);
 
 fn main() {
     let num_contexts = 2;
-    let let mut global_state = GlobalState::new();
+    let mut global_state = GlobalState::new();
 
     global_state.add_report::<Incidence>("test4_incidence_report.csv");
     global_state.add_report::<Death>("test4_death_report.csv");

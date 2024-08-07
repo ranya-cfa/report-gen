@@ -60,8 +60,8 @@ mod tests {
     #[test]
     fn test_release_report_item() {
         let mut state = GlobalState::new();
-        state.setup_report::<Incidence>("test3_incidence_report.csv");
-        state.setup_report::<Death>("test3_death_report.csv");
+        state.add_report::<Incidence>("test3_incidence_report.csv");
+        state.add_report::<Death>("test3_death_report.csv");
 
         let context_name = "Context 1".to_string();
         // generate reports
