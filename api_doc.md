@@ -60,7 +60,7 @@ See `Context` documentation for how to add a `GlobalState` to each simulation.
 
 ### `start_consumer_thread()`
 
-Start the consumer thread that will read the reports. This function must be called in order for the report to be written to the correct file. Again, a new block is used to lock `global_state`. 
+Start the consumer thread that will read the reports. This function must be called before any reports are sent and is necessary for the report to be written to the correct file. Again, a new block is used to lock `global_state`. 
 
 ``` rust
 {
