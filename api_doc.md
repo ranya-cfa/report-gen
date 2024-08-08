@@ -52,7 +52,7 @@ global_state.add_report::<Death>("death_report.csv");
 See `Context` documentation for how to add a `GlobalState` to each simulation.
 
 ### `join_threads()`
-When all simulations have finished executing, call `join_threads()` to close all channels and finish writing reports. The program will not exit until this method is called. 
+When all simulations have finished executing, call `join_threads()` to close all channels and finish writing reports. If this is not called, the program will execute without guaranteeing that all reports have been properly written to the file. 
 
 ``` rust
 global_state.lock().unwrap().join_threads()`
