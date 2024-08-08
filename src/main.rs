@@ -71,7 +71,7 @@ fn main() {
     for i in 0..num_contexts {
         let global_state_clone = global_state.clone();
         let handle = thread::spawn(move || {
-            let context = Context::new(global_state_clone.clone());
+            let context = Context::new(global_state.clone());
             for counter in 0..4 {
                 let incidence_report = Incidence {
                     context_name: format!("Context {}", i),
@@ -97,5 +97,4 @@ fn main() {
     }
 
     global_state.lock().unwrap().join_consumer_thread();
-    drop(global_state);
 }
