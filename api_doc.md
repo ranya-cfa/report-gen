@@ -1,4 +1,4 @@
-# Option 4
+# Option 2
 Note: this implementation has one channel, with all report types written onto it and one reader thread that demuxes them.
 
 ## Overview 
