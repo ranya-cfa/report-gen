@@ -1,5 +1,0 @@
-context_name,counter,timestamp,new_cases
-Context 1,0,2023-06-26 0,150
-Context 1,1,2023-06-26 1,151
-Context 1,2,2023-06-26 2,152
-Context 1,3,2023-06-26 3,153
