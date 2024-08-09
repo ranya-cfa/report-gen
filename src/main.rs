@@ -1,9 +1,7 @@
 mod context;
-mod global_state;
 
 use context::Context;
 use csv::Writer;
-use global_state::GlobalState;
 use serde_derive::{Deserialize, Serialize};
 use std::any::TypeId;
 use std::fs::File;
@@ -53,25 +51,15 @@ create_report_trait!(Death);
 
 fn main() {
     let num_contexts = 4;
-    let global_state = Arc::new(Mutex::new(GlobalState::new()));
-
-    {
-        let mut state = global_state.lock().unwrap();
-        state.register_report_type::<Incidence>("incidence_report.csv");
-        state.register_report_type::<Death>("death_report.csv");
-    }
-
-    {
-        let mut state = global_state.lock().unwrap();
-        state.start_consumer_thread();
-    }
-
     let mut handles = vec![];
 
     for i in 0..num_contexts {
-        let global_state_clone = global_state.clone();
         let handle = thread::spawn(move || {
-            let context = Context::new(global_state.clone());
+            let mut context = Context::new(format!("Context {}", i));
+            let incidence_report_name = format!("{}_{}", i, "incidence_report.csv");
+            context.add_report::<Incidence>(&incidence_report_name);
+            let death_report_name = format!("{}_{}", i, "death_report.csv");
+            context.add_report::<Death>(&death_report_name);
             for counter in 0..4 {
                 let incidence_report = Incidence {
                     context_name: format!("Context {}", i),
@@ -87,6 +75,7 @@ fn main() {
                 };
                 context.send_report(incidence_report);
                 context.send_report(death_report);
+                // Each context will have its own file. So at the end of this, we will have 4 death files and 4 incidence files 
             }
         });
         handles.push(handle);
@@ -95,6 +84,4 @@ fn main() {
     for handle in handles {
         handle.join().unwrap();
     }
-
-    global_state.lock().unwrap().join_consumer_thread();
 }

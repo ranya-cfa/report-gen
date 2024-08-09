@@ -1,0 +1,5 @@
+context_name,counter,timestamp,new_cases
+Context 3,0,2023-06-26 0,150
+Context 3,1,2023-06-26 1,151
+Context 3,2,2023-06-26 2,152
+Context 3,3,2023-06-26 3,153
