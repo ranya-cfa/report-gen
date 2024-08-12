@@ -2,13 +2,12 @@ use csv::Writer;
 use crate::Report;
 use std::collections::HashMap;
 use std::fs::File;
-use std::sync::{Arc, Mutex};
 use std::any::TypeId;
 use std::path::Path;
 
 pub struct Context {
     name: String,
-    file_writers: HashMap<TypeId, Arc<Mutex<Writer<File>>>>, // Type Id represents type of report, value is Sender
+    file_writers: HashMap<TypeId, Writer<File>>, // Type Id represents type of report, value is Sender
 }
 
 impl Context {
@@ -23,13 +22,12 @@ impl Context {
         let path = Path::new(filename);
         let file = File::create(path).expect("Couldn't create file");
         let writer = Writer::from_writer(file);
-        self.file_writers.insert(TypeId::of::<T>(), Arc::new(Mutex::new(writer)));
+        self.file_writers.insert(TypeId::of::<T>(), writer);
     }
 
-    pub fn send_report<T:Report>(&self, report: T) {
-        if let Some(writer) = self.file_writers.get(&report.type_id()){
-            let mut writer = writer.lock().unwrap();
-            report.serialize(&mut *writer);
+    pub fn send_report<T:Report>(&mut self, report: T) {
+        if let Some(writer) = self.file_writers.get_mut(&report.type_id()){
+            report.serialize(writer);
         } else {
             panic!("No writer found for the report type");
         }

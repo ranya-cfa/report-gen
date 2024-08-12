@@ -5,11 +5,9 @@ use csv::Writer;
 use serde_derive::{Deserialize, Serialize};
 use std::any::TypeId;
 use std::fs::File;
-use std::sync::{Arc, Mutex};
 use std::thread;
 
-pub trait Report: Send + 'static {
-    // Send is necessary to ensure thread safety because we have multiple thread boundaries with 'Sender' and 'Receiver'
+pub trait Report: 'static {
     fn type_id(&self) -> TypeId;
     fn serialize(&self, writer: &mut Writer<File>);
 }
