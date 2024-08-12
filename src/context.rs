@@ -18,8 +18,15 @@ impl Context {
         }
     }
 
-    pub fn add_report<T: Report + 'static>(&mut self, filename: &str) {
-        let path = Path::new(filename);
+    pub fn generate_filename<T: Report + 'static>(&self) -> String {
+        let type_name = std::any::type_name::<T>();
+        let short_name = type_name.split("::").last().unwrap();
+        format!("{}_{}.csv", self.name, short_name)
+    }
+
+    pub fn add_report<T: Report + 'static>(&mut self) {
+        let filename = self.generate_filename::<T>();
+        let path = Path::new(&filename);
         let file = File::create(path).expect("Couldn't create file");
         let writer = Writer::from_writer(file);
         self.file_writers.insert(TypeId::of::<T>(), writer);
@@ -31,9 +38,5 @@ impl Context {
         } else {
             panic!("No writer found for the report type");
         }
-    }
-    
-    pub fn get_name(&self) -> &str {
-        &self.name
     }
 }
