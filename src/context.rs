@@ -32,4 +32,8 @@ impl Context {
             panic!("No writer found for the report type");
         }
     }
+    
+    pub fn get_name(&self) -> &str {
+        &self.name
+    }
 }

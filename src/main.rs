@@ -30,7 +30,6 @@ macro_rules! create_report_trait {
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Incidence {
-    pub context_name: String,
     pub counter: usize,
     pub timestamp: String,
     pub new_cases: u32,
@@ -38,7 +37,6 @@ pub struct Incidence {
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Death {
-    pub context_name: String,
     pub counter: usize,
     pub timestamp: String,
     pub deaths: u32,
@@ -48,25 +46,24 @@ create_report_trait!(Incidence);
 create_report_trait!(Death);
 
 fn main() {
-    let num_contexts = 4;
+    let context_names = vec!["0", "1", "2", "3"]; // user must input context names here 
     let mut handles = vec![];
 
-    for i in 0..num_contexts {
+    for context_name in context_names {
+        let context_name = context_name.to_string();
         let handle = thread::spawn(move || {
-            let mut context = Context::new(format!("Context {}", i));
-            let incidence_report_name = format!("{}_{}", i, "incidence_report.csv");
+            let mut context = Context::new(format!("Context {}", context_name));
+            let incidence_report_name = format!("incidence-{}.csv", context.get_name());
             context.add_report::<Incidence>(&incidence_report_name);
-            let death_report_name = format!("{}_{}", i, "death_report.csv");
+            let death_report_name = format!("deaths-{}.csv", context.get_name());
             context.add_report::<Death>(&death_report_name);
             for counter in 0..4 {
                 let incidence_report = Incidence {
-                    context_name: format!("Context {}", i),
                     counter,
                     timestamp: format!("2023-06-26 {}", counter),
                     new_cases: 150 + counter as u32,
                 };
                 let death_report = Death {
-                    context_name: format!("Context {}", i),
                     counter,
                     timestamp: format!("2023-06-26 {}", counter),
                     deaths: 5 + counter as u32,
