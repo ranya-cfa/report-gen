@@ -52,9 +52,9 @@ fn main() {
     for context_name in context_names {
         let context_name = context_name.to_string();
         let handle = thread::spawn(move || {
-            let mut context = Context::new(context_name.clone());
-            context.add_report::<Incidence>();
-            context.add_report::<Death>();
+            let mut context = Context::new(format!("context_{}", context_name));
+            context.add_report::<Incidence>("Incidence");
+            context.add_report::<Death>("Death");
             for counter in 0..4 {
                 let incidence_report = Incidence {
                     counter,

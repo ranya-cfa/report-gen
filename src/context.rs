@@ -18,14 +18,12 @@ impl Context {
         }
     }
 
-    pub fn generate_filename<T: Report + 'static>(&self) -> String {
-        let type_name = std::any::type_name::<T>();
-        let short_name = type_name.split("::").last().unwrap();
+    pub fn generate_filename(&self, short_name: &str) -> String {
         format!("{}_{}.csv", self.name, short_name)
     }
 
-    pub fn add_report<T: Report + 'static>(&mut self) {
-        let filename = self.generate_filename::<T>();
+    pub fn add_report<T: Report + 'static>(&mut self, short_name: &str) {
+        let filename = self.generate_filename(short_name);
         let path = Path::new(&filename);
         let file = File::create(path).expect("Couldn't create file");
         let writer = Writer::from_writer(file);
