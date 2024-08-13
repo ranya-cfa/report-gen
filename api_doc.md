@@ -53,6 +53,7 @@ Call `add_report` with each report type, passing the name of the report type. Th
 context.add_report::<Incidence>("Incidence");
 context.add_report::<Death>("Death");
 ```
+For the above example, the resulting report names are `context_one_Incidence.csv` and `context_one_Death.csv`.
 
 ### `send_report(item: T)`
 
@@ -76,7 +77,7 @@ each context will output its own set of report files. At the end, we must merge 
 Since the user will determine the different simulations they want to run, they must store the names of the simulations so that those names can be integrated into the resulting report filename. We will iterate over this list to run all necessary simulations. 
 
 ``` rust
-let context_names = vec!["context_0", "context_1", "context_2", "context_3"];
+let context_names = vec!["Illinois", "Wisconsin", "Arizona", "California"]; 
 for context_name in context_names {
     let context_name = context_name.to_string();
     let handle = thread::spawn(move || {
@@ -85,8 +86,26 @@ for context_name in context_names {
     });
 }
 ```
-`add_report` and `send_report` function the same in a multi-threaded scenario as they do in a single-threaded scenario. 
-Refer to previous documentation.
+### `add_report::<ReportType>(short_name: &str)`
+For each context, call `add_report`, passing the name of the report type. For each context, a file is created for each report type.
+
+``` rust
+let context_names = vec!["Illinois", "Wisconsin", "Arizona", "California"]; 
+for context_name in context_names {
+    let context_name = context_name.to_string();
+    let handle = thread::spawn(move || {
+        let mut context = Context::new(context_name.clone());
+        context.add_report::<Incidence>("Incidence");
+        context.add_report::<Death>("Death");
+    ...
+    });
+}
+```
+
+For the above example, the resulting output files would be `Illinois_Incidence.csv`, `Illinois_Death.csv`, `Wisconsin_Incidence.csv`, `Wisconsin_Death.csv`, `Arizona_Incidence.csv`, `Arizona_Death.csv`, `California_Incidence.csv`, and `California_Death.csv`.
+
+### `send_report`
+`send_report` functions the same in a multi-threaded scenario as it does in a single-threaded scenario. Refer to previous documentation. 
 
 ### Merge multiple report files into one per report type
 Call an external script to merge all CSVs for a report type into one file. So at the end, there will be one file per report type. 

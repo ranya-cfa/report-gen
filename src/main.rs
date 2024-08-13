@@ -48,7 +48,7 @@ create_report_trait!(Incidence);
 create_report_trait!(Death);
 
 fn main() {
-    let context_names = vec!["context_0", "context_1", "context_2", "context_3"]; // user must input context names here 
+    let context_names = vec!["Illinois", "Wisconsin", "Arizona", "California"]; // user must input context names here 
     let mut handles = vec![];
 
     for context_name in context_names {
