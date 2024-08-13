@@ -30,6 +30,7 @@ macro_rules! create_report_trait {
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Incidence {
+    pub context: String,
     pub counter: usize,
     pub timestamp: String,
     pub new_cases: u32,
@@ -37,6 +38,7 @@ pub struct Incidence {
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Death {
+    pub context: String,
     pub counter: usize,
     pub timestamp: String,
     pub deaths: u32,
@@ -52,16 +54,18 @@ fn main() {
     for context_name in context_names {
         let context_name = context_name.to_string();
         let handle = thread::spawn(move || {
-            let mut context = Context::new(format!("context_{}", context_name));
+            let mut context = Context::new(context_name.clone());
             context.add_report::<Incidence>("Incidence");
             context.add_report::<Death>("Death");
             for counter in 0..4 {
                 let incidence_report = Incidence {
+                    context: context_name.clone(),
                     counter,
                     timestamp: format!("2023-06-26 {}", counter),
                     new_cases: 150 + counter as u32,
                 };
                 let death_report = Death {
+                    context: context_name.clone(),
                     counter,
                     timestamp: format!("2023-06-26 {}", counter),
                     deaths: 5 + counter as u32,
