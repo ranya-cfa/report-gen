@@ -1,3 +1,4 @@
+# Option 1
 Note: For each context, this implementation outputs a file for each report type.. 
 
 ## Overview 
