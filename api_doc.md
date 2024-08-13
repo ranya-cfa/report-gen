@@ -1,4 +1,4 @@
-# Option 4
+# Option 3
 Note: this implementation has one channel per report type and one reader thread per report type. 
 
 ## Overview 

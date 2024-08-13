@@ -1,4 +1,4 @@
-Option 4
+Option 3
 
 One channel per report type, one reader thread per report type
 
