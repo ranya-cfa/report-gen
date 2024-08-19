@@ -110,3 +110,10 @@ For the above example, the resulting output files would be `Illinois_Incidence.c
 
 ### Merge multiple report files into one per report type
 Call an external script to merge all CSVs for a report type into one file. So at the end, there will be one file per report type. 
+
+## File Naming
+The file naming structure is "experiment_name"_"scenario_name"_"report_name".csv. 
+Experiment name points to the overall simulation that is running. All files should have the same experiment name. 
+Scenario name points to which context is running. 
+Report name is the type of report that is generated. 
+So, for example, if we are looking at flu data, our experiment name might be `Flu`, the scenarios might be `California, Ohio, Arizona`, and the report names might be `Incidence, Death`. The resulting files would be `Flu_California_Incidence.csv`, `Flu_California_Death.csv`, `Flu_Ohio_Incidence.csv`, `Flu_Ohio_Death.csv`, `Flu_Arizona_Incidence.csv`, and `Flu_Arizona_Death.csv`
