@@ -126,10 +126,6 @@ mod tests {
             let mut state = global_state.lock().unwrap();
             state.register_report_type::<Incidence>("test4_incidence_report.csv");
             state.register_report_type::<Death>("test4_death_report.csv");
-        }
-
-        {
-            let mut state = global_state.lock().unwrap();
             state.start_consumer_thread();
         }
 
